@@ -1,0 +1,93 @@
+---
+format_version: '11'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: android
+trigger_map: []
+workflows:
+  appium-ui-tests:
+    steps:
+    - activate-ssh-key@4:
+        run_if: '{{getenv "SSH_RSA_PRIVATE_KEY" | ne ""}}'
+    - git-clone@6: {}
+    - script@1:
+        title: Clone Appium Repository
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            git clone https://github.com/moatazeldebsy/appium-bitrise-ci
+    - cache-pull@2: {}
+    - install-missing-android-tools@2:
+        inputs:
+        - gradlew_path: "$PROJECT_LOCATION/gradlew"
+    - android-build@0:
+        inputs:
+        - variant: debug
+        - module: app
+    - script@1:
+        title: Install and Run Appium
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+
+            npm install -g appium --unsafe-perm=true --allow-root
+            appium --log appium.log &>/dev/null &
+    - avd-manager@1:
+        inputs:
+        - api_level: '28'
+    - wait-for-android-emulator@1: {}
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            cd appium-bitrise-ci
+            mvn clean test -Pandroid
+
+            cd
+        title: Run UI Tests
+    - script@1:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            cp ./appium.log $BITRISE_DEPLOY_DIR
+        title: Export Appium Logs
+        is_always_run: true
+    - custom-test-results-export@0:
+        inputs:
+        - search_pattern: "*/target/surefire-reports/junitreports/*"
+        - test_name: Appium Tests
+    - deploy-to-bitrise-io@1: {}
+    - cache-push@2: {}
+app:
+  envs:
+  - opts:
+      is_expand: false
+    PROJECT_LOCATION: "."
+  - opts:
+      is_expand: false
+    MODULE: app
+  - opts:
+      is_expand: false
+    VARIANT: debug
+meta:
+  bitrise.io:
+    machine_type_id: elite-xl
