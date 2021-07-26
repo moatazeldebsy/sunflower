@@ -90,4 +90,4 @@ app:
     VARIANT: debug
 meta:
   bitrise.io:
-    machine_type_id: elite-xl
+    machine_type_id: standard
